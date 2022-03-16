@@ -1,7 +1,7 @@
 volatile unsigned long timerCounts;
 volatile boolean counterReady;
 
-// para rutina de conteo
+// counting routine
 unsigned long OVFcount;
 unsigned int timerTicks;
 unsigned int timerPeriod;
@@ -11,7 +11,7 @@ unsigned int timerPeriod;
 void startCounting (unsigned int ms){
 
   counterReady = false;
-  timerPeriod = ms; // cuantos conteos de 1 ms puedo hacer
+  timerPeriod = ms; // how many counts in 1 ms
   timerTicks = 0;
   OVFcount = 0; 
   
@@ -20,16 +20,16 @@ void startCounting (unsigned int ms){
 
   // TC0 ch1
   TC0->TC_CHANNEL[1].TC_CMR = TC_CMR_TCCLKS_XC0 | // XC0 -> external clock pin D22
-                              TC_CMR_WAVSEL_UP  | // modo normal hasta OVF = 2^32 - 1
-                              TC_CMR_EEVTEDG_RISING;  // external event -> flanco de subida
+                              TC_CMR_WAVSEL_UP  | // normal mode until OVF = 2^32 - 1
+                              TC_CMR_EEVTEDG_RISING;  // external event -> rising edge
 
   // TC0 ch2
-  TC0->TC_CHANNEL[2].TC_CMR = TC_CMR_TCCLKS_TIMER_CLOCK1 |  // timer_clock1 -> 84MHz/2 = 42 MHz (23.8 ns por tick)
-                              TC_CMR_WAVSEL_UP_RC;  // Comparador RC
+  TC0->TC_CHANNEL[2].TC_CMR = TC_CMR_TCCLKS_TIMER_CLOCK1 |  // timer_clock1 -> 84 MHz / 2 = 42 MHz (23.8 ns by tick)
+                              TC_CMR_WAVSEL_UP_RC;  // RC comparator
 
-  // seteo RC para interrumpir cada 1 ms = 42000 * 23.8 ns 
+  // set RC to interrupt every 1 ms = 42000 * 23.8 ns 
   //TC_SetRC(TC0, 2, 42000);
-  TC_SetRC(TC0, 2, 42041); // mejora para la freq de 10 MHz
+  TC_SetRC(TC0, 2, 42041); // better for 10 MHz frequency
   
   TC0->TC_CHANNEL[1].TC_IER = TC_IER_COVFS;
   TC0->TC_CHANNEL[1].TC_IDR = ~TC_IER_COVFS;
@@ -52,7 +52,7 @@ void startCounting (unsigned int ms){
 // TC0 channel 1
 void TC1_Handler(){
   TC_GetStatus(TC0, 1);
-  ++OVFcount; // contador de OVF 
+  ++OVFcount; // OVF counter
 }
 
 // TC0 channel 2
@@ -62,12 +62,12 @@ void TC2_Handler(){
   timer1count = TC0->TC_CHANNEL[1].TC_CV;
   unsigned long OVFcopy = OVFcount;
 
-  // vemos si superamos el periodo de tiempo
+  // verify if time period is exceeded
   if (++timerTicks < timerPeriod){
     return;
   }
 
-  // si nos perdimos un OVF
+  // if one OVF is lost
   //if (((status & TC_SR_COVFS) == TC_SR_COVFS) && timer1count < 4294967296){
    // OVFcopy++;
   //}
@@ -79,14 +79,14 @@ void TC2_Handler(){
   TC0->TC_CHANNEL[2].TC_IDR |= TC_IER_CPCS;
 
   
-  // conteo
+  // counter
   timerCounts = (OVFcopy << 32) + timer1count; // OVFcopy << 32 = OVFcopy*2^32
   counterReady = true;
 }
 
 void setup() {
   Serial.begin(115200);
-  //Serial.println("Frecuencímetro");
+  //Serial.println("Frequency meter");
 
   pinMode(vdd, OUTPUT);
   digitalWrite(vdd, HIGH);
@@ -104,14 +104,14 @@ void loop() {
       Serial.println("1");
       digitalWrite(vdd, LOW);
       while(1){
-        startCounting(1000); // periodo de tiempo en ms
+        startCounting(1000); // time period in ms
       while (!counterReady){
       }
 
-       // frecuencia en Hz
+       // frequency in Hz
       float freq = (timerCounts*1000.00)/ timerPeriod;
 
-      Serial.print("Frecuencia: ");
+      Serial.print("Frequency: ");
       Serial.print((unsigned long) freq);
       Serial.println(" Hz");
       }
